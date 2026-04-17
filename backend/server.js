@@ -1,65 +1,52 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config();
+const backendBase = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : `http://${window.location.hostname}:5000`;
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const apiUrl = `${backendBase}/projects`;
 
-const mongoURI = process.env.MONGO_URI || 'mongodb://mongo:27017/projecttracker';
+async function fetchProjects() {
+  const res = await fetch(apiUrl);
+  const projects = await res.json();
 
-mongoose.connect(mongoURI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  const list = document.getElementById('projectList');
+  list.innerHTML = '';
 
-const projectSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  owner: { type: String, required: true },
-  status: { type: String, required: true },
-  deadline: { type: String, required: true }
+  projects.forEach(project => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <strong>${project.name}</strong><br>
+      Owner: ${project.owner}<br>
+      Status: ${project.status}<br>
+      Deadline: ${project.deadline}<br>
+      <button class="delete-btn" onclick="deleteProject('${project._id}')">Delete</button>
+    `;
+    list.appendChild(li);
+  });
+}
+
+document.getElementById('projectForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const project = {
+    name: document.getElementById('name').value,
+    owner: document.getElementById('owner').value,
+    status: document.getElementById('status').value,
+    deadline: document.getElementById('deadline').value
+  };
+
+  await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(project)
+  });
+
+  e.target.reset();
+  fetchProjects();
 });
 
-const Project = mongoose.model('Project', projectSchema);
+async function deleteProject(id) {
+  await fetch(`${apiUrl}/${id}`, { method: 'DELETE' });
+  fetchProjects();
+}
 
-app.get('/projects', async (req, res) => {
-  const projects = await Project.find();
-  res.json(projects);
-});
-
-app.post('/projects', async (req, res) => {
-  try {
-    const project = new Project(req.body);
-    await project.save();
-    res.status(201).json(project);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-app.put('/projects/:id', async (req, res) => {
-  try {
-    const updated = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updated);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-app.delete('/projects/:id', async (req, res) => {
-  try {
-    await Project.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Project deleted' });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-app.get('/', (req, res) => {
-  res.send('Project Tracker API is running');
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+fetchProjects();
