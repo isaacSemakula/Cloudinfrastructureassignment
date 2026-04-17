@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: projecttracker_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - projectnet
+
+  backend:
+    build: ./backend
+    container_name: projecttracker_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/projecttracker
+    depends_on:
+      - mongo
+    networks:
+      - projectnet
+
+  mongo:
+    image: mongo:7
+    container_name: projecttracker_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - projectnet
+
+volumes:
+  mongo_data:
+
+networks:
+  projectnet:
+    driver: bridge
